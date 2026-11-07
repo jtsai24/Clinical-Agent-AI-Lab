@@ -20,16 +20,32 @@ python scripts/download_data.py   # caches PubMedQA locally (~545MB, one-time)
 
 ## How the issues fan out
 
-Issues are the project's decision log — why something was chosen, what was discovered, what's planned. Since issues sometimes get replaced as understanding evolves, this table is the map of what's current.
+Issues are the project's decision log — why something was chosen, what was discovered, what's planned. They form a tree, not a flat list: [#2](../../issues/2) is the root, everything else branches off it as either dataset groundwork or build-plan work.
 
-| # | Title | Status | Role |
-|---|---|---|---|
-| [#1](../../issues/1) | Project goal and dataset decision | **Deprecated** — superseded by #2 + #3 | Original combined issue, split once it became clear direction and dataset choice needed separate tracking |
-| [#2](../../issues/2) | Project direction: why build this | Active — canonical reference | Why this project exists, the two interviews, long-term goal, and the formal **Stage 1 / Stage 2 definitions** |
-| [#3](../../issues/3) | Dataset analysis | Active | Options considered, why PubMedQA, fallback plan, scoping decisions (abstract-only RAG, question-derived-from-title caveat) |
-| [#4](../../issues/4) | Build plan: Stage 2 (retrieval) | Active | 7-step corpus + vector DB + recall@k plan, sampling-strategy decision |
-| [#5](../../issues/5) | Dataset download mechanics | Active | Download code, local cache location/size, `reasoning_*_pred` field discovery |
-| [#6](../../issues/6) | Deep dive: dataset structure | Active | Stable reference for what's actually in PubMedQA — subset schemas, `context` vs. full-abstract distinction |
-| [#7](../../issues/7) | Build plan: Stage 1 (extraction, as interview rehearsal) | Active | Rehearsal-oriented build plan for the Agentic Engineering interview, grounded in the reading list |
+```
+#2  Project direction: why build this  [ROOT — active, canonical reference]
+│   Why this project exists, the two interviews, long-term goal,
+│   and the formal Stage 1 / Stage 2 definitions.
+│
+├── Dataset deep dive
+│   ├── #1  Project goal and dataset decision   [DEPRECATED — split into #2 + #3]
+│   ├── #3  Dataset analysis                    [active]
+│   │       Options considered, why PubMedQA, fallback plan,
+│   │       scoping decisions (abstract-only RAG, question-from-title caveat)
+│   ├── #5  Dataset download mechanics           [active]
+│   │       Download code, local cache location/size, reasoning_*_pred discovery
+│   └── #6  Deep dive: dataset structure         [active]
+│           Stable reference for what's in PubMedQA — subset schemas,
+│           context vs. full-abstract distinction
+│
+└── Build plan
+    ├── #7  Stage 1 (extraction, interview rehearsal)   [ACTIVE — current work]
+    │       Rehearsal-oriented plan for the Agentic Engineering interview
+    │
+    └── #4  Stage 2 (retrieval)                          [DEFERRED until #7 is done]
+            7-step corpus + vector DB + recall@k plan, sampling-strategy decision
+```
 
 **Convention for superseding an issue:** close it with a comment stating what replaced it, explicitly calling out whether it's *deprecated* (replaced, not completed) vs. genuinely done. "Closed" alone means completed; a replaced issue's close comment must say so.
+
+**Convention for deferring an issue:** leave it open, but note in the README tree (here) and in the issue itself what it's waiting on, so "open" doesn't get read as "in progress."
