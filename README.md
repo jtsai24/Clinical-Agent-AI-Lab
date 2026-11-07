@@ -13,10 +13,15 @@ python scripts/download_data.py   # caches PubMedQA locally (~545MB, one-time)
 
 ## Reference docs
 
-- [`datasets.md`](datasets.md) — dataset options considered before choosing PubMedQA
-- [`pubmedQA_labeled_sample_data.md`](pubmedQA_labeled_sample_data.md) — real sample rows, annotated
-- [`example_reasoning_walkthrough.md`](example_reasoning_walkthrough.md) — one full example reasoned through in plain language
-- [`interview_prep_reading_list.md`](interview_prep_reading_list.md) — how interviewers score working with coding agents
+Plan and production-tracking docs live at the repo root since they're actively edited during the build; everything else is reference material, under [`docs/`](docs/):
+
+- [`PLAN.md`](PLAN.md) — Stage 1 plan: clarifying questions, inputs/outputs, what "correct" means
+- [`docs/datasets.md`](docs/datasets.md) — dataset options considered before choosing PubMedQA
+- [`docs/pubmedQA_labeled_sample_data.md`](docs/pubmedQA_labeled_sample_data.md) — real sample rows, annotated
+- [`docs/example_reasoning_walkthrough.md`](docs/example_reasoning_walkthrough.md) — one full example reasoned through in plain language
+- [`docs/interview_prep_reading_list.md`](docs/interview_prep_reading_list.md) — how interviewers score working with coding agents
+- [`docs/api_key_handling.md`](docs/api_key_handling.md) — API key handling: why env vars while prototyping, and the production-tier distinction
+- [`production_gaps.md`](production_gaps.md) — where rehearsal/prototype choices (e.g. secrets handling) diverge from production practice
 
 ## How the issues fan out
 
@@ -35,6 +40,8 @@ Issues are the project's decision log — why something was chosen, what was dis
   - **Build plan**
     - [**#7 — Stage 1 (extraction, interview rehearsal)**](../../issues/7) — `ACTIVE`, current work
       — rehearsal-oriented plan for the Agentic Engineering interview
+      - [**#8 — Stage 1: credential handling for the Together API key**](../../issues/8) — `active`
+        — decisions, mechanism, and OS-level reasoning for the `.env`/env-var approach
     - [**#4 — Stage 2 (retrieval)**](../../issues/4) — `DEFERRED` until #7 is done
       — 7-step corpus + vector DB + recall@k plan, sampling-strategy decision
 
