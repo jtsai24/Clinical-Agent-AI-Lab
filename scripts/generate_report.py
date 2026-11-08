@@ -22,6 +22,7 @@ h1 { margin-bottom: 0; }
 }
 .baseline-agrees { color: #666; }
 .baseline-disagrees { color: #c0392b; font-weight: 600; }
+.baseline-beat { color: #1a6fa0; }
 .row-header { font-weight: 600; font-size: 0.8rem; color: #666; border-bottom: 2px solid #ddd; }
 details.row { border-bottom: 1px solid #eee; }
 details.row summary { cursor: pointer; list-style: none; }
@@ -29,6 +30,7 @@ details.row summary::-webkit-details-marker { display: none; }
 .row-correct { background: #eafbea; }
 .row-mismatch { background: #fdecea; }
 .row-rejected { background: #f0f0f0; }
+.row-error { background: #fff4e0; }
 .row-detail { padding: 0.75rem 1rem; background: #fafafa; font-size: 0.9rem; }
 .row-detail pre { white-space: pre-wrap; background: #fff; padding: 0.5rem; border-radius: 4px; border: 1px solid #ddd; }
 .row-detail .field { margin-bottom: 0.6rem; }
@@ -42,6 +44,10 @@ def render_row(record: dict) -> str:
         css_class = "row-rejected"
         answer = "—"
         decision_col = record["reject_reason"]
+    elif status == "error":
+        css_class = "row-error"
+        answer = "—"
+        decision_col = record["error_type"]
     elif record["correct"]:
         css_class = "row-correct"
         answer = record["answer"]
@@ -66,6 +72,9 @@ def render_row(record: dict) -> str:
     if status == "rejected":
         # raw_response is the only evidence of what the model said when there's no parsed answer
         detail_fields.append(("raw_response", record.get("raw_response", "")))
+    elif status == "error":
+        # the call never returned a response — no answer/evidence_quote/context exist for this row
+        detail_fields.append(("error_message", record.get("error_message", "")))
 
     detail_html = "".join(
         f'<div class="field"><div class="field-label">{escape(name)}</div><pre>{escape(str(value))}</pre></div>'
@@ -75,10 +84,28 @@ def render_row(record: dict) -> str:
     if context_html:
         detail_html += f'<div class="field"><div class="field-label">context</div>{context_html}</div>'
 
-    baseline_pred = record.get("reasoning_required_pred", "")
-    baseline_agrees = baseline_pred == record["final_decision"]
-    baseline_class = "baseline-agrees" if baseline_agrees else "baseline-disagrees"
-    baseline_label = escape(baseline_pred) + ("" if baseline_agrees else " ⚠ disagrees too")
+    if status == "error":
+        baseline_class = "baseline-agrees"
+        baseline_label = ""
+    elif status == "rejected":
+        # no scored answer exists to compare against, so just show the baseline's raw value
+        baseline_pred = record.get("reasoning_required_pred", "")
+        baseline_class = "baseline-agrees"
+        baseline_label = escape(baseline_pred)
+    else:
+        baseline_pred = record.get("reasoning_required_pred", "")
+        baseline_agrees_with_gold = baseline_pred == record["final_decision"]
+        if baseline_agrees_with_gold:
+            baseline_class = "baseline-agrees"
+            baseline_label = escape(baseline_pred)
+        elif not record["correct"]:
+            # both the model and the 2019 baseline missed this row — plausibly inherently hard
+            baseline_class = "baseline-disagrees"
+            baseline_label = escape(baseline_pred) + " ⚠ disagrees too"
+        else:
+            # baseline was wrong here, but the model got it right anyway
+            baseline_class = "baseline-beat"
+            baseline_label = escape(baseline_pred) + " (model got it right)"
 
     return f"""
     <details class="row {css_class}">
@@ -103,16 +130,22 @@ def render_report(run: dict) -> str:
     accuracy_str = f"{accuracy:.0%}" if accuracy is not None else "n/a"
 
     rejected_by_reason = ", ".join(f"{k}: {v}" for k, v in report["rejected_by_reason"].items()) or "none"
+    errored_by_type = ", ".join(f"{k}: {v}" for k, v in report.get("errored_by_type", {}).items()) or "none"
+
+    wall_clock_seconds = run.get("wall_clock_seconds")
+    wall_clock_str = f"{wall_clock_seconds:.2f}s" if wall_clock_seconds is not None else "n/a"
 
     summary_html = f"""
     <div class="summary">
       <div><div class="label">rows</div><div class="value">{report['total_in']}</div></div>
-      <div><div class="label">valid / rejected</div><div class="value">{report['valid_count']} / {report['rejected_count']}</div></div>
+      <div><div class="label">valid / rejected / errored</div><div class="value">{report['valid_count']} / {report['rejected_count']} / {report.get('errored_count', 0)}</div></div>
       <div><div class="label">accuracy</div><div class="value">{accuracy_str}</div></div>
       <div><div class="label">total cost</div><div class="value">${report['total_cost_usd']:.6f}</div></div>
-      <div><div class="label">avg latency</div><div class="value">{report['avg_latency_seconds']:.2f}s</div></div>
-      <div><div class="label">total latency</div><div class="value">{report['total_latency_seconds']:.2f}s</div></div>
+      <div><div class="label">wall clock time</div><div class="value">{wall_clock_str}</div></div>
+      <div><div class="label">avg latency / row</div><div class="value">{report['avg_latency_seconds']:.2f}s</div></div>
+      <div><div class="label">summed latency</div><div class="value">{report['total_latency_seconds']:.2f}s</div></div>
       <div><div class="label">rejected by reason</div><div class="value" style="font-size:0.95rem">{escape(rejected_by_reason)}</div></div>
+      <div><div class="label">errored by type</div><div class="value" style="font-size:0.95rem">{escape(errored_by_type)}</div></div>
     </div>
     """
 
