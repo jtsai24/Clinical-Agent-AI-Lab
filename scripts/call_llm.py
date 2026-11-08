@@ -9,7 +9,9 @@ from datasets import load_dataset
 from dotenv import load_dotenv
 from together import Together
 
-from validate import aggregate, score, validate
+from report import aggregate
+from score import score
+from validate import validate
 
 ROW_COUNT = 10
 
@@ -34,12 +36,8 @@ def build_prompt(question: str, context: dict) -> str:
     return PROMPT_TEMPLATE.format(question=question, context=abstract)
 
 
-def call_llm(question: str, context: dict) -> str:
-    load_dotenv()          # non-secret config: MODEL_PROVIDER, MODEL_BASE_URL, MODEL_NAME
-    load_dotenv(".env.secret")  # MODEL_API_KEY only — kept separate so editing model config never requires reading the key file
+def call_llm(client: Together, question: str, context: dict) -> str:
     prompt = build_prompt(question, context)
-    #print(f"Prompt: {prompt}")
-    client = Together(api_key=os.environ["MODEL_API_KEY"])
     response = client.chat.completions.create(
         model=os.environ["MODEL_NAME"],
         temperature=0,
@@ -49,8 +47,8 @@ def call_llm(question: str, context: dict) -> str:
     return response.choices[0].message.content
 
 
-def process_row(row: dict) -> dict:
-    raw_response = call_llm(row["question"], row["context"])
+def process_row(client: Together, row: dict) -> dict:
+    raw_response = call_llm(client, row["question"], row["context"])
     result = validate(raw_response, row["context"])
     record = {
         "pubid": row["pubid"],
@@ -63,6 +61,10 @@ def process_row(row: dict) -> dict:
 
 
 def main() -> None:
+    load_dotenv()          # non-secret config: MODEL_PROVIDER, MODEL_BASE_URL, MODEL_NAME
+    load_dotenv(".env.secret")  # MODEL_API_KEY only — kept separate so editing model config never requires reading the key file
+    client = Together(api_key=os.environ["MODEL_API_KEY"])
+
     labeled = load_dataset("qiaojin/PubMedQA", "pqa_labeled")["train"]
     rows = labeled.select(range(ROW_COUNT))
 
@@ -71,7 +73,7 @@ def main() -> None:
 
     records = []
     for row in rows:
-        record = process_row(row)
+        record = process_row(client, row)
         records.append(record)
 
         print(f"pubid: {record['pubid']} | status: {record['status']}", end="")
