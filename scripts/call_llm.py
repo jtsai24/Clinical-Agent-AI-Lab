@@ -9,7 +9,9 @@ from datasets import load_dataset
 from dotenv import load_dotenv
 from together import Together
 
-from validate import validate
+from validate import aggregate, score, validate
+
+ROW_COUNT = 10
 
 PROMPT_TEMPLATE = """You are given a biomedical research question and the abstract of a paper \
 (with its conclusion removed). Based only on the abstract, answer the question.
@@ -45,24 +47,9 @@ def call_llm(question: str, context: dict) -> str:
     return response.choices[0].message.content
 
 
-def main() -> None:
-    labeled = load_dataset("qiaojin/PubMedQA", "pqa_labeled")["train"]
-    row = labeled[0]
-
+def process_row(row: dict) -> dict:
     raw_response = call_llm(row["question"], row["context"])
     result = validate(raw_response, row["context"])
-
-    print(f"pubid: {row['pubid']}")
-    print(f"question: {row['question']}")
-    print(f"final_decision (gold label): {row['final_decision']}")
-    print()
-    print("raw LLM response:")
-    print(raw_response)
-    print()
-    print(f"validation result: {result}")
-
-    output_dir = Path("output/raw")
-    output_dir.mkdir(parents=True, exist_ok=True)
     record = {
         "pubid": row["pubid"],
         "question": row["question"],
@@ -70,9 +57,38 @@ def main() -> None:
         "raw_response": raw_response,
         **result,
     }
-    out_path = output_dir / f"{row['pubid']}.json"
-    out_path.write_text(json.dumps(record, indent=2))
-    print(f"\nSaved to {out_path}")
+    return score(record, row["final_decision"])
+
+
+def main() -> None:
+    labeled = load_dataset("qiaojin/PubMedQA", "pqa_labeled")["train"]
+    rows = labeled.select(range(ROW_COUNT))
+
+    output_dir = Path("output/raw")
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    records = []
+    for row in rows:
+        record = process_row(row)
+        records.append(record)
+
+        print(f"pubid: {record['pubid']} | status: {record['status']}", end="")
+        if record["status"] == "valid":
+            print(f" | answer: {record['answer']} | final_decision: {record['final_decision']} | correct: {record['correct']}")
+        else:
+            print(f" | reject_reason: {record['reject_reason']}")
+
+        out_path = output_dir / f"{record['pubid']}.json"
+        out_path.write_text(json.dumps(record, indent=2))
+
+    report = aggregate(records)
+    print()
+    print("=== Aggregate report ===")
+    print(json.dumps(report, indent=2))
+
+    report_path = Path("output/report.json")
+    report_path.write_text(json.dumps(report, indent=2))
+    print(f"\nSaved aggregate report to {report_path}")
 
 
 if __name__ == "__main__":
