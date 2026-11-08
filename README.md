@@ -26,7 +26,8 @@ Both write one JSON file per row to `output/raw/` and one aggregate run file to
 valid/rejected/errored counts, rejected-by-reason, mismatches, latency, cost).
 `output/` itself is gitignored — when a run is worth showcasing in this README, its
 run JSON + generated HTML are copied into [`selected_output/runs/`](selected_output/runs/),
-which *is* committed, so the linked reports actually render on GitHub.
+which *is* committed and served live via [GitHub Pages](https://jtsai24.github.io/Clinical-Agent-AI-Lab/)
+(repo root, `main` branch — GitHub's `blob` view only shows HTML as source, never renders it).
 
 ```bash
 # render a run as a browsable HTML report (#15)
@@ -48,18 +49,18 @@ in `.env.secret` (see [#12](../../issues/12), [`docs/api_key_handling.md`](docs/
 
 100-row model comparison across providers, via `scripts/run_model_comparison.py`
 (#19; original 10-row sweep in [#11](../../issues/11)). Each row links to its full
-per-row HTML report ([#15](../../issues/15)); the underlying run JSON + HTML for this
-specific comparison are checked into [`selected_output/runs/`](selected_output/runs/)
-so they render on GitHub — everyday runs still go to `output/` (gitignored) and get
-copied here only when curated for the README:
+per-row HTML report ([#15](../../issues/15)), served live via GitHub Pages; the
+underlying run JSON + HTML for this specific comparison are checked into
+[`selected_output/runs/`](selected_output/runs/) — everyday runs still go to
+`output/` (gitignored) and get copied here only when curated for the README:
 
 | Model | Accuracy | Valid / rejected | Avg latency/row | Total cost | Report |
 |---|---|---|---|---|---|
-| deepseek-ai/DeepSeek-V4.1-Flash-1017 | 71% | 98 / 2 | 1.29s | $0.0649 | [html](selected_output/runs/2026-11-08T17-10-10_deepseek-ai_DeepSeek-V4.1-Flash-1017.html) |
-| zai-org/GLM-5.3-Flash | 74% | 99 / 1 | 2.47s | $0.0274 | [html](selected_output/runs/2026-11-08T17-10-39_zai-org_GLM-5.3-Flash.html) |
-| zai-org/GLM-5.3 (full) | 76% | 95 / 5 | 3.31s | $0.2789 | [html](selected_output/runs/2026-11-08T17-11-31_zai-org_GLM-5.3.html) |
-| moonshotai/Kimi-K3.1-Pro | 77% | 96 / 4 | 10.92s | $0.6465 | [html](selected_output/runs/2026-11-08T17-12-53_moonshotai_Kimi-K3.1-Pro.html) |
-| openai/gpt-oss-120b | 75% | 100 / 0 | 2.09s | $0.0217 | [html](selected_output/runs/2026-11-08T17-16-39_openai_gpt-oss-120b.html) |
+| deepseek-ai/DeepSeek-V4.1-Flash-1017 | 71% | 98 / 2 | 1.29s | $0.0649 | [html](https://jtsai24.github.io/Clinical-Agent-AI-Lab/selected_output/runs/2026-11-08T17-10-10_deepseek-ai_DeepSeek-V4.1-Flash-1017.html) |
+| zai-org/GLM-5.3-Flash | 74% | 99 / 1 | 2.47s | $0.0274 | [html](https://jtsai24.github.io/Clinical-Agent-AI-Lab/selected_output/runs/2026-11-08T17-10-39_zai-org_GLM-5.3-Flash.html) |
+| zai-org/GLM-5.3 (full) | 76% | 95 / 5 | 3.31s | $0.2789 | [html](https://jtsai24.github.io/Clinical-Agent-AI-Lab/selected_output/runs/2026-11-08T17-11-31_zai-org_GLM-5.3.html) |
+| moonshotai/Kimi-K3.1-Pro | 77% | 96 / 4 | 10.92s | $0.6465 | [html](https://jtsai24.github.io/Clinical-Agent-AI-Lab/selected_output/runs/2026-11-08T17-12-53_moonshotai_Kimi-K3.1-Pro.html) |
+| openai/gpt-oss-120b | 75% | 100 / 0 | 2.09s | $0.0217 | [html](https://jtsai24.github.io/Clinical-Agent-AI-Lab/selected_output/runs/2026-11-08T17-16-39_openai_gpt-oss-120b.html) |
 
 `GLM-5.3-Flash` is kept as the model going forward: at n=100 all five models converge
 into a tight 71-77% band (unlike #11's original 10-row sweep, which spread 40-70% —
