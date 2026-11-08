@@ -1,0 +1,63 @@
+from report import aggregate
+
+
+def valid(pubid, answer, final_decision, correct):
+    return {
+        "pubid": pubid,
+        "status": "valid",
+        "answer": answer,
+        "final_decision": final_decision,
+        "correct": correct,
+    }
+
+
+def rejected(pubid, reason):
+    return {"pubid": pubid, "status": "rejected", "reject_reason": reason}
+
+
+def test_row_accounting_reconciles():
+    records = [
+        valid(1, "yes", "yes", True),
+        rejected(2, "malformed_json"),
+        rejected(3, "invalid_answer"),
+    ]
+    report = aggregate(records)
+    assert report["total_in"] == 3
+    assert report["valid_count"] + report["rejected_count"] == report["total_in"]
+
+
+def test_rejected_by_reason_counts():
+    records = [
+        rejected(1, "malformed_json"),
+        rejected(2, "malformed_json"),
+        rejected(3, "invalid_answer"),
+    ]
+    report = aggregate(records)
+    assert report["rejected_by_reason"] == {"malformed_json": 2, "invalid_answer": 1}
+
+
+def test_accuracy_only_over_valid_rows():
+    records = [
+        valid(1, "yes", "yes", True),
+        valid(2, "no", "yes", False),
+        rejected(3, "fabricated_quote"),
+    ]
+    report = aggregate(records)
+    assert report["accuracy"] == 0.5
+    assert report["valid_count"] == 2
+
+
+def test_mismatches_list_only_wrong_valid_rows():
+    records = [
+        valid(1, "yes", "yes", True),
+        valid(2, "no", "yes", False),
+    ]
+    report = aggregate(records)
+    assert report["mismatches"] == [{"pubid": 2, "answer": "no", "final_decision": "yes"}]
+
+
+def test_accuracy_is_none_when_no_valid_rows():
+    records = [rejected(1, "malformed_json")]
+    report = aggregate(records)
+    assert report["accuracy"] is None
+    assert report["mismatches"] == []
