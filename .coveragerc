@@ -1,0 +1,10 @@
+[run]
+include =
+    scripts/aggregate.py
+    scripts/cost.py
+    scripts/llm_pipeline.py
+    scripts/score.py
+    scripts/validate.py
+
+[report]
+show_missing = True

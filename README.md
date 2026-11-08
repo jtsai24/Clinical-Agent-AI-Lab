@@ -18,7 +18,10 @@ python scripts/call_llm_concurrent.py --rows 50 --workers 5
 ```
 
 (`scripts/archived/call_llm.py` is the original pre-concurrency version from #7's
-build-up, kept frozen for reference — not run or maintained going forward; #21.)
+build-up, kept frozen for reference — not run or maintained going forward; #21.
+`scripts/llm_pipeline.py` holds the testable prompt/call/row-processing logic;
+`call_llm_concurrent.py` is just the CLI/argparse/ThreadPoolExecutor entry point
+over it — see `.coveragerc` for what's in scope for coverage, and why.)
 
 Writes one JSON file per row to `output/raw/` and one aggregate run file to
 `output/runs/<timestamp>_<model>.json` (row records + the aggregate report: accuracy,
@@ -149,7 +152,9 @@ Issues are the project's decision log — why something was chosen, what was dis
       - [**#21 — Code structure review: duplication risk and complexity hotspots**](../../issues/21) — `active`
         — triage before reviewing everything; resolved the call_llm.py/call_llm_concurrent.py split and #18's revert
       - [**#22 — Unit tests for run_row_safe's error-handling branches**](../../issues/22) — `active`
-        — RateLimitError and generic-exception paths, found uncovered during #21
+        — RateLimitError and generic-exception paths, found uncovered during #21; tests moved to #23
+      - [**#23 — Extract llm_pipeline.py; add scoped coverage config**](../../issues/23) — `active`
+        — split testable logic out of call_llm_concurrent.py; 100% coverage across the 5 unit-tested modules
     - [**#4 — Stage 2 (retrieval)**](../../issues/4) — `DEFERRED` until #7 is done
       — 7-step corpus + vector DB + recall@k plan, sampling-strategy decision
 
