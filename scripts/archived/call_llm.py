@@ -1,4 +1,11 @@
-"""Run Stage 1 end to end on a slice of PubMedQA rows: call the LLM, validate
+"""ARCHIVED (#21): the original pre-concurrency Stage 1 script, kept as a record of
+the build's step-2 "tiny slice end to end" milestone (#7) before #16 added concurrency.
+Superseded by call_llm_concurrent.py, which is a strict superset (its --workers 1
+reproduces this script's sequential behavior). Frozen as-is, not maintained, and no
+longer runnable standalone from this location — its sibling imports (aggregate, cost,
+pricing, score, validate) resolved only when it lived directly under scripts/.
+
+Run Stage 1 end to end on a slice of PubMedQA rows: call the LLM, validate
 and score each response, and write per-row and aggregate reports (see PLAN.md)."""
 
 import json

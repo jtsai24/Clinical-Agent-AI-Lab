@@ -14,14 +14,13 @@ python scripts/download_data.py   # caches PubMedQA locally (~545MB, one-time)
 ## How to run it
 
 ```bash
-# sequential, 10 rows by default (edit ROW_COUNT in the script to change)
-python scripts/call_llm.py
-
-# concurrent (#16), configurable
 python scripts/call_llm_concurrent.py --rows 50 --workers 5
 ```
 
-Both write one JSON file per row to `output/raw/` and one aggregate run file to
+(`scripts/archived/call_llm.py` is the original pre-concurrency version from #7's
+build-up, kept frozen for reference — not run or maintained going forward; #21.)
+
+Writes one JSON file per row to `output/raw/` and one aggregate run file to
 `output/runs/<timestamp>_<model>.json` (row records + the aggregate report: accuracy,
 valid/rejected/errored counts, rejected-by-reason, mismatches, latency, cost).
 `output/` itself is gitignored — when a run is worth showcasing in this README, its

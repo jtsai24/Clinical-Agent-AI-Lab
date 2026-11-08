@@ -1,4 +1,4 @@
-from call_llm import build_prompt
+from call_llm_concurrent import build_prompt
 
 
 def test_build_prompt_includes_question_and_labeled_sections():
