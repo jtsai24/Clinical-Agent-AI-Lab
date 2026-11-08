@@ -46,11 +46,11 @@ def build_prompt(question: str, context: dict) -> str:
     return PROMPT_TEMPLATE.format(question=question, context=abstract)
 
 
-def call_llm(client: Together, question: str, context: dict) -> dict:
+def call_llm(client: Together, model_name: str, question: str, context: dict) -> dict:
     prompt = build_prompt(question, context)
     start = time.monotonic()
     response = client.chat.completions.create(
-        model=os.environ["MODEL_NAME"],
+        model=model_name,
         temperature=0,
         max_tokens=2048,  # reasoning models (e.g. gpt-oss) burn tokens on hidden reasoning before the final answer
         messages=[{"role": "user", "content": prompt}],
@@ -64,8 +64,8 @@ def call_llm(client: Together, question: str, context: dict) -> dict:
     }
 
 
-def process_row(client: Together, row: dict, pricing: dict) -> dict:
-    call_result = call_llm(client, row["question"], row["context"])
+def process_row(client: Together, model_name: str, row: dict, pricing: dict) -> dict:
+    call_result = call_llm(client, model_name, row["question"], row["context"])
     result = validate(call_result["content"], row["context"])
     cost_usd = compute_cost(call_result["prompt_tokens"], call_result["completion_tokens"], pricing)
     record = {
@@ -82,12 +82,12 @@ def process_row(client: Together, row: dict, pricing: dict) -> dict:
     return score(record, row["final_decision"])
 
 
-def run_row_safe(client: Together, row: dict, pricing: dict) -> dict:
+def run_row_safe(client: Together, model_name: str, row: dict, pricing: dict) -> dict:
     """Never raises — any failure becomes a status: "error" record instead,
     so one row's failure can't crash the batch (see #16)."""
     start = time.monotonic()
     try:
-        return process_row(client, row, pricing)
+        return process_row(client, model_name, row, pricing)
     except together.RateLimitError as e:
         error_type = "rate_limited"
         message = str(e)
@@ -118,6 +118,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--rows", type=int, default=DEFAULT_ROW_COUNT)
     parser.add_argument("--workers", type=int, default=DEFAULT_MAX_WORKERS)
+    parser.add_argument("--model", type=str, default=None, help="overrides MODEL_NAME from .env")
     return parser.parse_args()
 
 
@@ -127,7 +128,7 @@ def main() -> None:
     load_dotenv()          # non-secret config: MODEL_PROVIDER, MODEL_BASE_URL, MODEL_NAME
     load_dotenv(".env.secret")  # MODEL_API_KEY only — kept separate so editing model config never requires reading the key file
     api_key = os.environ["MODEL_API_KEY"]
-    model_name = os.environ["MODEL_NAME"]
+    model_name = args.model or os.environ["MODEL_NAME"]
     client = Together(api_key=api_key)
     pricing = get_model_pricing(model_name, api_key)
 
@@ -140,7 +141,7 @@ def main() -> None:
     records = []
     wall_clock_start = time.monotonic()
     with ThreadPoolExecutor(max_workers=args.workers) as executor:
-        futures = [executor.submit(run_row_safe, client, row, pricing) for row in rows]
+        futures = [executor.submit(run_row_safe, client, model_name, row, pricing) for row in rows]
         for future in as_completed(futures):
             record = future.result()
             records.append(record)

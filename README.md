@@ -29,7 +29,12 @@ valid/rejected/errored counts, rejected-by-reason, mismatches, latency, cost).
 # render a run as a browsable HTML report (#15)
 python scripts/generate_report.py output/runs/<timestamp>_<model>.json
 
-# compare accuracy/latency/cost across every saved run (#14)
+# run the same row slice across every model in MODELS, one call_llm_concurrent.py
+# subprocess per model — a model failing doesn't abort the rest of the sweep (#18)
+python scripts/run_model_comparison.py --rows 10 --workers 5
+
+# compare accuracy/latency/cost across every saved run, plus a per-model
+# accuracy-over-time sparkline (#14, #18)
 python scripts/compare_runs.py
 ```
 
@@ -43,24 +48,27 @@ Latest 50-row run, `zai-org/GLM-5.3-Flash`, 5 concurrent workers (#16):
 - **83.7% accuracy** (49 valid / 1 rejected [`malformed_json`] / 0 errored)
 - ~21.9s wall clock, ~2.1s avg latency/row, ~$0.014 total cost
 
-*(Will need updating once a fresh run is captured — see note below.)*
+10-row model comparison across providers, re-run via `scripts/run_model_comparison.py`
+(#18; original sweep in [#11](../../issues/11)):
 
-10-row model comparison across providers ([#11](../../issues/11)):
+| Model | Accuracy | Avg latency/row | Total cost |
+|---|---|---|---|
+| deepseek-ai/DeepSeek-V4.1-Flash-1017 | 40% | 1.46s | $0.0068 |
+| zai-org/GLM-5.3-Flash | 70% | 2.37s | $0.0025 |
+| zai-org/GLM-5.3 (full) | 50% | 2.69s | $0.0280 |
+| moonshotai/Kimi-K3.1-Pro | 67% | 24.09s | $0.1052 |
+| openai/gpt-oss-120b | 60% | 2.46s | $0.0022 |
 
-| Model | Accuracy |
-|---|---|
-| deepseek-ai/DeepSeek-V4.1-Flash-1017 | 40% |
-| zai-org/GLM-5.3-Flash | 70% |
-| zai-org/GLM-5.3 (full) | 60% |
-| moonshotai/Kimi-K3.1-Pro | 70% |
-| openai/gpt-oss-120b | 60% |
-
-`GLM-5.3-Flash` was kept as the model going forward — tied for best, cheapest of the
-two leaders. Three rows (`17208539`, `26037986`, `26852225`) failed across nearly every
-model tested, including the dataset's own 2019 baseline prediction — see #11 for why
-this points at a hard-to-extract signal in the withheld-conclusion context rather than
-a shared reasoning gap, and why Stage 1's accuracy numbers measure reasoning-from-partial-evidence,
-not real-world "can the LLM answer given the full paper" utility.
+`GLM-5.3-Flash` is kept as the model going forward: best accuracy of the five, and
+roughly 10-40x cheaper and faster per row than the two next-best (Kimi, GLM-5.3 full).
+Exact percentages shift a few points run-to-run (compare to #11's original 40/70/60/70/60
+despite `temperature=0`) — the direction (DeepSeek weakest, Flash/gpt-oss mid-to-strong,
+Kimi accurate but far slower/pricier) is the stable signal, not the exact numbers.
+Three rows (`17208539`, `26037986`, `26852225`) failed across nearly every model tested,
+including the dataset's own 2019 baseline prediction — see #11 for why this points at a
+hard-to-extract signal in the withheld-conclusion context rather than a shared reasoning
+gap, and why Stage 1's accuracy numbers measure reasoning-from-partial-evidence, not
+real-world "can the LLM answer given the full paper" utility.
 
 ## Production gaps
 
@@ -128,6 +136,10 @@ Issues are the project's decision log — why something was chosen, what was dis
         — `scripts/call_llm_concurrent.py`, N=5 default, `--rows`/`--workers` flags
       - [**#17 — Rename report.py to aggregate.py**](../../issues/17) — `active`
         — naming cleanup discovered mid-build; own issue and commit per the standing convention
+      - [**#18 — Accuracy-over-time sparkline in compare_runs.py**](../../issues/18) — `active`
+        — per-model trend view across saved runs, no new dependency
+      - [**#19 — --model flag + run_model_comparison.py sweep script**](../../issues/19) — `active`
+        — re-ran the #11 model comparison with runs actually saved to output/runs/
     - [**#4 — Stage 2 (retrieval)**](../../issues/4) — `DEFERRED` until #7 is done
       — 7-step corpus + vector DB + recall@k plan, sampling-strategy decision
 
