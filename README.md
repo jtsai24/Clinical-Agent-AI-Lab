@@ -11,6 +11,74 @@ pip install -r requirements.txt
 python scripts/download_data.py   # caches PubMedQA locally (~545MB, one-time)
 ```
 
+## How to run it
+
+```bash
+# sequential, 10 rows by default (edit ROW_COUNT in the script to change)
+python scripts/call_llm.py
+
+# concurrent (#16), configurable
+python scripts/call_llm_concurrent.py --rows 50 --workers 5
+```
+
+Both write one JSON file per row to `output/raw/` and one aggregate run file to
+`output/runs/<timestamp>_<model>.json` (row records + the aggregate report: accuracy,
+valid/rejected/errored counts, rejected-by-reason, mismatches, latency, cost).
+
+```bash
+# render a run as a browsable HTML report (#15)
+python scripts/generate_report.py output/runs/<timestamp>_<model>.json
+
+# compare accuracy/latency/cost across every saved run (#14)
+python scripts/compare_runs.py
+```
+
+Requires `MODEL_PROVIDER`, `MODEL_BASE_URL`, `MODEL_NAME` in `.env` and `MODEL_API_KEY`
+in `.env.secret` (see [#12](../../issues/12), [`docs/api_key_handling.md`](docs/api_key_handling.md)).
+
+## Results
+
+Latest 50-row run, `zai-org/GLM-5.3-Flash`, 5 concurrent workers (#16):
+
+- **83.7% accuracy** (49 valid / 1 rejected [`malformed_json`] / 0 errored)
+- ~21.9s wall clock, ~2.1s avg latency/row, ~$0.014 total cost
+
+*(Will need updating once a fresh run is captured — see note below.)*
+
+10-row model comparison across providers ([#11](../../issues/11)):
+
+| Model | Accuracy |
+|---|---|
+| deepseek-ai/DeepSeek-V4.1-Flash-1017 | 40% |
+| zai-org/GLM-5.3-Flash | 70% |
+| zai-org/GLM-5.3 (full) | 60% |
+| moonshotai/Kimi-K3.1-Pro | 70% |
+| openai/gpt-oss-120b | 60% |
+
+`GLM-5.3-Flash` was kept as the model going forward — tied for best, cheapest of the
+two leaders. Three rows (`17208539`, `26037986`, `26852225`) failed across nearly every
+model tested, including the dataset's own 2019 baseline prediction — see #11 for why
+this points at a hard-to-extract signal in the withheld-conclusion context rather than
+a shared reasoning gap, and why Stage 1's accuracy numbers measure reasoning-from-partial-evidence,
+not real-world "can the LLM answer given the full paper" utility.
+
+## Production gaps
+
+This is a rehearsal/prototype, not a production deployment. Known gaps, tracked in
+detail in [`production_gaps.md`](production_gaps.md):
+
+- **Secrets handling** — local `.env`/`.env.secret` files today; a real deployment
+  would hold the API key in a managed secrets store (encrypted at rest, access-logged,
+  rotated), since the LLM provider boundary can't support short-lived auto-issued
+  credentials the way internal service-to-service calls can.
+- **No retries/backoff/rate limiting** on LLM calls beyond catching `RateLimitError`
+  into an `error` status.
+- **Only a 50-row eval cap** — no larger-scale accuracy measurement.
+- **No PHI handling** — this uses only public PubMedQA abstracts; real patient data
+  would need a BAA with the model provider and audit logging of what was sent.
+- **No monitoring/alerting** on reject rate or accuracy drift, and no human review
+  workflow for rejected rows.
+
 ## Reference docs
 
 Plan and production-tracking docs live at the repo root since they're actively edited during the build; everything else is reference material, under [`docs/`](docs/):
@@ -42,6 +110,24 @@ Issues are the project's decision log — why something was chosen, what was dis
       — rehearsal-oriented plan for the Agentic Engineering interview
       - [**#8 — Stage 1: credential handling for the Together API key**](../../issues/8) — `active`
         — decisions, mechanism, and OS-level reasoning for the `.env`/env-var approach
+      - [**#9 — Add a validation layer**](../../issues/9) — `active`
+        — `scripts/validate.py`: parsing/rejecting malformed LLM responses before scoring
+      - [**#10 — Aggregate reporting: what we report and how**](../../issues/10) — `active`
+        — accuracy, reject/error breakdowns, mismatches; `scripts/aggregate.py`
+      - [**#11 — Model comparison results**](../../issues/11) — `active`
+        — 10-row comparison across 5 models, and the reasoning-vs-utility limitation
+      - [**#12 — Split the API key into its own file**](../../issues/12) — `active`
+        — `.env` (non-secret config) vs `.env.secret` (API key only)
+      - [**#13 — Unit tests for validate/score/aggregate**](../../issues/13) — `active`
+        — 21/21 passing, includes the step 4 break-a-test exercise
+      - [**#14 — Latency/cost tracking and cross-run comparison**](../../issues/14) — `active`
+        — per-call latency/cost fields; `scripts/compare_runs.py`
+      - [**#15 — HTML report for a single run**](../../issues/15) — `active`
+        — `scripts/generate_report.py`, renders `output/runs/*.json` to a browsable report
+      - [**#16 — Concurrent LLM calls via ThreadPoolExecutor**](../../issues/16) — `active`
+        — `scripts/call_llm_concurrent.py`, N=5 default, `--rows`/`--workers` flags
+      - [**#17 — Rename report.py to aggregate.py**](../../issues/17) — `active`
+        — naming cleanup discovered mid-build; own issue and commit per the standing convention
     - [**#4 — Stage 2 (retrieval)**](../../issues/4) — `DEFERRED` until #7 is done
       — 7-step corpus + vector DB + recall@k plan, sampling-strategy decision
 
