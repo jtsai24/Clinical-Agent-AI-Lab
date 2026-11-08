@@ -1,9 +1,11 @@
-"""Call the LLM on one PubMedQA row and record the raw response, for manual inspection
-before any parsing/validation/scoring logic gets built (see PLAN.md)."""
+"""Run Stage 1 end to end on a slice of PubMedQA rows: call the LLM, validate
+and score each response, and write per-row and aggregate reports (see PLAN.md)."""
 
 import json
 import os
 from pathlib import Path
+
+os.environ.setdefault("HF_HUB_OFFLINE", "1")  # dataset is already cached by download_data.py; skip the Hub rate-limit check
 
 from datasets import load_dataset
 from dotenv import load_dotenv
