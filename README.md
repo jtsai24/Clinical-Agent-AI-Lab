@@ -46,6 +46,30 @@ python scripts/compare_runs.py
 Requires `MODEL_PROVIDER`, `MODEL_BASE_URL`, `MODEL_NAME` in `.env` and `MODEL_API_KEY`
 in `.env.secret` (see [#12](../../issues/12), [`docs/api_key_handling.md`](docs/api_key_handling.md)).
 
+## Test coverage
+
+```bash
+pytest                                        # run the suite (27 tests)
+pytest --cov --cov-report=html                # regenerate htmlcov/index.html
+open htmlcov/index.html
+```
+
+`.coveragerc` scopes `pytest-cov` to an explicit `include` allowlist — only the
+modules this project actually unit-tests, rather than instrumenting every file in
+`scripts/` and showing misleading 0%s for things that were never meant to have unit
+tests. Covered, and why:
+
+| Module | Covered? | Why |
+|---|---|---|
+| `aggregate.py`, `cost.py`, `score.py`, `validate.py` | ✅ | Pure functions, no I/O — the project's original #7/#9 design goal. |
+| `llm_pipeline.py` | ✅ | Pure LLM-calling/row-processing logic (`build_prompt`, `call_llm`, `process_row`, `run_row_safe`), split out of `call_llm_concurrent.py` in #23 specifically so it could be unit-tested in isolation — `call_llm`/`process_row` use a mocked Together client (no real network calls), `run_row_safe`'s two exception branches are tested via `monkeypatch` (#22). |
+| `call_llm_concurrent.py` | ❌, deliberately | Thin CLI/orchestration layer only (`argparse`, real `.env` loading, real client + dataset construction, `ThreadPoolExecutor`, file I/O) — unit-testing it would mean mocking nearly everything inside it, testing the mocks more than real behavior. Exercised instead by actually running the pipeline. |
+| `generate_report.py`, `compare_runs.py`, `run_model_comparison.py`, `download_data.py`, `print_sample_row.py`, `pricing.py` | ❌, deliberately | I/O, CLI, or network-dependent scripts never scoped for unit tests. |
+| `archived/call_llm.py` | ❌, deliberately | Frozen reference code (#21), not maintained, no longer expected to work standalone. |
+
+Latest result: **100% across all 5 included modules** (83/83 statements), 27/27 tests
+passing.
+
 ## Results
 
 100-row model comparison across providers, via `scripts/run_model_comparison.py`
