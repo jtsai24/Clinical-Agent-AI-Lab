@@ -23,15 +23,38 @@ def rejected(pubid, reason, latency_seconds=1.0, cost_usd=0.001):
     }
 
 
+def errored(pubid, error_type, latency_seconds=1.0, cost_usd=0.0):
+    return {
+        "pubid": pubid,
+        "status": "error",
+        "error_type": error_type,
+        "error_message": "boom",
+        "latency_seconds": latency_seconds,
+        "cost_usd": cost_usd,
+    }
+
+
 def test_row_accounting_reconciles():
     records = [
         valid(1, "yes", "yes", True),
         rejected(2, "malformed_json"),
         rejected(3, "invalid_answer"),
+        errored(4, "rate_limited"),
     ]
     report = aggregate(records)
-    assert report["total_in"] == 3
-    assert report["valid_count"] + report["rejected_count"] == report["total_in"]
+    assert report["total_in"] == 4
+    assert report["valid_count"] + report["rejected_count"] + report["errored_count"] == report["total_in"]
+
+
+def test_errored_by_type_counts():
+    records = [
+        errored(1, "rate_limited"),
+        errored(2, "rate_limited"),
+        errored(3, "other"),
+    ]
+    report = aggregate(records)
+    assert report["errored_by_type"] == {"rate_limited": 2, "other": 1}
+    assert report["accuracy"] is None
 
 
 def test_rejected_by_reason_counts():

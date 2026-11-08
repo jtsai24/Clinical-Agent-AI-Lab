@@ -1,25 +1,29 @@
-"""Run Stage 1 end to end on a slice of PubMedQA rows: call the LLM, validate
-and score each response, and write per-row and aggregate reports (see PLAN.md)."""
+"""Run Stage 1 end to end on a slice of PubMedQA rows, concurrently: call the LLM,
+validate and score each response, and write per-row and aggregate reports (see #16)."""
 
+import argparse
 import json
 import os
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 
 os.environ.setdefault("HF_HUB_OFFLINE", "1")  # dataset is already cached by download_data.py; skip the Hub rate-limit check
 
+import together
 from datasets import load_dataset
 from dotenv import load_dotenv
 from together import Together
 
+from aggregate import aggregate
 from cost import compute_cost
 from pricing import get_model_pricing
-from report import aggregate
 from score import score
 from validate import validate
 
-ROW_COUNT = 10
+DEFAULT_ROW_COUNT = 10
+DEFAULT_MAX_WORKERS = 5
 
 PROMPT_TEMPLATE = """You are given a biomedical research question and the abstract of a paper \
 (with its conclusion removed). Based only on the abstract, answer the question.
@@ -78,7 +82,47 @@ def process_row(client: Together, row: dict, pricing: dict) -> dict:
     return score(record, row["final_decision"])
 
 
+def run_row_safe(client: Together, row: dict, pricing: dict) -> dict:
+    """Never raises — any failure becomes a status: "error" record instead,
+    so one row's failure can't crash the batch (see #16)."""
+    start = time.monotonic()
+    try:
+        return process_row(client, row, pricing)
+    except together.RateLimitError as e:
+        error_type = "rate_limited"
+        message = str(e)
+    except Exception as e:
+        error_type = "other"
+        message = str(e)
+    return {
+        "pubid": row["pubid"],
+        "status": "error",
+        "error_type": error_type,
+        "error_message": message,
+        "latency_seconds": time.monotonic() - start,
+        "cost_usd": 0.0,  # no tokens were charged — the call never returned a response
+    }
+
+
+def print_progress(record: dict) -> None:
+    print(f"pubid: {record['pubid']} | status: {record['status']}", end="")
+    if record["status"] == "valid":
+        print(f" | answer: {record['answer']} | final_decision: {record['final_decision']} | correct: {record['correct']}")
+    elif record["status"] == "rejected":
+        print(f" | reject_reason: {record['reject_reason']}")
+    else:
+        print(f" | error_type: {record['error_type']}")
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--rows", type=int, default=DEFAULT_ROW_COUNT)
+    parser.add_argument("--workers", type=int, default=DEFAULT_MAX_WORKERS)
+    return parser.parse_args()
+
+
 def main() -> None:
+    args = parse_args()
     run_started_at = datetime.now(timezone.utc)
     load_dotenv()          # non-secret config: MODEL_PROVIDER, MODEL_BASE_URL, MODEL_NAME
     load_dotenv(".env.secret")  # MODEL_API_KEY only — kept separate so editing model config never requires reading the key file
@@ -88,24 +132,24 @@ def main() -> None:
     pricing = get_model_pricing(model_name, api_key)
 
     labeled = load_dataset("qiaojin/PubMedQA", "pqa_labeled")["train"]
-    rows = labeled.select(range(ROW_COUNT))
+    rows = labeled.select(range(args.rows))
 
     output_dir = Path("output/raw")
     output_dir.mkdir(parents=True, exist_ok=True)
 
     records = []
-    for row in rows:
-        record = process_row(client, row, pricing)
-        records.append(record)
+    wall_clock_start = time.monotonic()
+    with ThreadPoolExecutor(max_workers=args.workers) as executor:
+        futures = [executor.submit(run_row_safe, client, row, pricing) for row in rows]
+        for future in as_completed(futures):
+            record = future.result()
+            records.append(record)
+            print_progress(record)
+            out_path = output_dir / f"{record['pubid']}.json"
+            out_path.write_text(json.dumps(record, indent=2))
+    wall_clock_seconds = time.monotonic() - wall_clock_start
 
-        print(f"pubid: {record['pubid']} | status: {record['status']}", end="")
-        if record["status"] == "valid":
-            print(f" | answer: {record['answer']} | final_decision: {record['final_decision']} | correct: {record['correct']}")
-        else:
-            print(f" | reject_reason: {record['reject_reason']}")
-
-        out_path = output_dir / f"{record['pubid']}.json"
-        out_path.write_text(json.dumps(record, indent=2))
+    records.sort(key=lambda r: r["pubid"])  # as_completed() yields out of row order
 
     report = aggregate(records)
     print()
@@ -115,7 +159,9 @@ def main() -> None:
     run = {
         "model": model_name,
         "started_at": run_started_at.isoformat(),
-        "row_count": ROW_COUNT,
+        "row_count": args.rows,
+        "max_workers": args.workers,
+        "wall_clock_seconds": wall_clock_seconds,
         "report": report,
         "records": records,
     }

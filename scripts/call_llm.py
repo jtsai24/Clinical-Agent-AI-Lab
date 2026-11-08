@@ -13,9 +13,9 @@ from datasets import load_dataset
 from dotenv import load_dotenv
 from together import Together
 
+from aggregate import aggregate
 from cost import compute_cost
 from pricing import get_model_pricing
-from report import aggregate
 from score import score
 from validate import validate
 
@@ -94,6 +94,7 @@ def main() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     records = []
+    wall_clock_start = time.monotonic()
     for row in rows:
         record = process_row(client, row, pricing)
         records.append(record)
@@ -106,6 +107,7 @@ def main() -> None:
 
         out_path = output_dir / f"{record['pubid']}.json"
         out_path.write_text(json.dumps(record, indent=2))
+    wall_clock_seconds = time.monotonic() - wall_clock_start
 
     report = aggregate(records)
     print()
@@ -116,6 +118,7 @@ def main() -> None:
         "model": model_name,
         "started_at": run_started_at.isoformat(),
         "row_count": ROW_COUNT,
+        "wall_clock_seconds": wall_clock_seconds,
         "report": report,
         "records": records,
     }
