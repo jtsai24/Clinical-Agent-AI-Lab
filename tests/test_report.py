@@ -1,18 +1,26 @@
 from report import aggregate
 
 
-def valid(pubid, answer, final_decision, correct):
+def valid(pubid, answer, final_decision, correct, latency_seconds=1.0, cost_usd=0.001):
     return {
         "pubid": pubid,
         "status": "valid",
         "answer": answer,
         "final_decision": final_decision,
         "correct": correct,
+        "latency_seconds": latency_seconds,
+        "cost_usd": cost_usd,
     }
 
 
-def rejected(pubid, reason):
-    return {"pubid": pubid, "status": "rejected", "reject_reason": reason}
+def rejected(pubid, reason, latency_seconds=1.0, cost_usd=0.001):
+    return {
+        "pubid": pubid,
+        "status": "rejected",
+        "reject_reason": reason,
+        "latency_seconds": latency_seconds,
+        "cost_usd": cost_usd,
+    }
 
 
 def test_row_accounting_reconciles():
@@ -61,3 +69,14 @@ def test_accuracy_is_none_when_no_valid_rows():
     report = aggregate(records)
     assert report["accuracy"] is None
     assert report["mismatches"] == []
+
+
+def test_latency_and_cost_summed_over_all_rows_including_rejected():
+    records = [
+        valid(1, "yes", "yes", True, latency_seconds=2.0, cost_usd=0.01),
+        rejected(2, "malformed_json", latency_seconds=1.0, cost_usd=0.005),
+    ]
+    report = aggregate(records)
+    assert report["total_latency_seconds"] == 3.0
+    assert report["avg_latency_seconds"] == 1.5
+    assert report["total_cost_usd"] == 0.015

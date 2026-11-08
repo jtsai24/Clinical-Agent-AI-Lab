@@ -27,6 +27,9 @@ def aggregate(records: list[dict]) -> dict:
         if not r["correct"]
     ]
 
+    total_latency_seconds = sum(r["latency_seconds"] for r in records)
+    total_cost_usd = sum(r["cost_usd"] for r in records)
+
     return {
         "total_in": total_in,
         "valid_count": len(valid),
@@ -34,4 +37,7 @@ def aggregate(records: list[dict]) -> dict:
         "rejected_by_reason": rejected_by_reason,
         "accuracy": accuracy,
         "mismatches": mismatches,
+        "total_latency_seconds": total_latency_seconds,
+        "avg_latency_seconds": total_latency_seconds / total_in if total_in else None,
+        "total_cost_usd": total_cost_usd,
     }
