@@ -146,6 +146,10 @@ Issues are the project's decision log — why something was chosen, what was dis
         — re-ran the #11 model comparison with runs actually saved to output/runs/
       - [**#20 — Showcase curated run outputs via selected_output/, tracked in git**](../../issues/20) — `active`
         — output/ is gitignored, so README-linked HTML reports need a committed, hand-curated copy
+      - [**#21 — Code structure review: duplication risk and complexity hotspots**](../../issues/21) — `active`
+        — triage before reviewing everything; resolved the call_llm.py/call_llm_concurrent.py split and #18's revert
+      - [**#22 — Unit tests for run_row_safe's error-handling branches**](../../issues/22) — `active`
+        — RateLimitError and generic-exception paths, found uncovered during #21
     - [**#4 — Stage 2 (retrieval)**](../../issues/4) — `DEFERRED` until #7 is done
       — 7-step corpus + vector DB + recall@k plan, sampling-strategy decision
 
