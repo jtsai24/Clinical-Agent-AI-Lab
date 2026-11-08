@@ -33,11 +33,10 @@ which *is* committed and served live via [GitHub Pages](https://jtsai24.github.i
 python scripts/generate_report.py output/runs/<timestamp>_<model>.json
 
 # run the same row slice across every model in MODELS, one call_llm_concurrent.py
-# subprocess per model — a model failing doesn't abort the rest of the sweep (#18)
+# subprocess per model — a model failing doesn't abort the rest of the sweep (#19)
 python scripts/run_model_comparison.py --rows 10 --workers 5
 
-# compare accuracy/latency/cost across every saved run, plus a per-model
-# accuracy-over-time sparkline (#14, #18)
+# compare accuracy/latency/cost across every saved run (#14)
 python scripts/compare_runs.py
 ```
 
@@ -141,8 +140,8 @@ Issues are the project's decision log — why something was chosen, what was dis
         — `scripts/call_llm_concurrent.py`, N=5 default, `--rows`/`--workers` flags
       - [**#17 — Rename report.py to aggregate.py**](../../issues/17) — `active`
         — naming cleanup discovered mid-build; own issue and commit per the standing convention
-      - [**#18 — Accuracy-over-time sparkline in compare_runs.py**](../../issues/18) — `active`
-        — per-model trend view across saved runs, no new dependency
+      - [**#18 — Accuracy-over-time sparkline in compare_runs.py**](../../issues/18) — `DEPRECATED`, reverted
+        — unrequested scope creep on an "extend compare_runs.py" answer; removed in #21
       - [**#19 — --model flag + run_model_comparison.py sweep script**](../../issues/19) — `active`
         — re-ran the #11 model comparison with runs actually saved to output/runs/
       - [**#20 — Showcase curated run outputs via selected_output/, tracked in git**](../../issues/20) — `active`
