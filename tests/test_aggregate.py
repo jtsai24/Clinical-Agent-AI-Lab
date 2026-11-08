@@ -1,4 +1,4 @@
-from report import aggregate
+from aggregate import aggregate
 
 
 def valid(pubid, answer, final_decision, correct, latency_seconds=1.0, cost_usd=0.001):
