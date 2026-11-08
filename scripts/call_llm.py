@@ -35,13 +35,15 @@ def build_prompt(question: str, context: dict) -> str:
 
 
 def call_llm(question: str, context: dict) -> str:
-    load_dotenv()
+    load_dotenv()          # non-secret config: MODEL_PROVIDER, MODEL_BASE_URL, MODEL_NAME
+    load_dotenv(".env.secret")  # MODEL_API_KEY only — kept separate so editing model config never requires reading the key file
     prompt = build_prompt(question, context)
     #print(f"Prompt: {prompt}")
     client = Together(api_key=os.environ["MODEL_API_KEY"])
     response = client.chat.completions.create(
         model=os.environ["MODEL_NAME"],
         temperature=0,
+        max_tokens=2048,  # reasoning models (e.g. gpt-oss) burn tokens on hidden reasoning before the final answer
         messages=[{"role": "user", "content": prompt}],
     )
     return response.choices[0].message.content
