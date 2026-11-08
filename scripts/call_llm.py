@@ -67,6 +67,8 @@ def process_row(client: Together, row: dict, pricing: dict) -> dict:
     record = {
         "pubid": row["pubid"],
         "question": row["question"],
+        "context": row["context"],
+        "reasoning_required_pred": "".join(row["context"].get("reasoning_required_pred") or []),
         "final_decision": row["final_decision"],
         "raw_response": call_result["content"],
         "latency_seconds": call_result["latency_seconds"],
